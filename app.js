@@ -1,6 +1,6 @@
 const { Cap, decoders } = require('cap');
+const os = require(os);
 const { PROTOCOL }      = decoders;
-const network           = require('network');
 const AODecoder         = require('./libs/AODecoder');
 const Events            = require('./libs/Events');
 const data              = require('./data');
@@ -21,20 +21,30 @@ class App {
         this.init();
     }
 
-    init = () => {
-        network.get_active_interface((err, obj) => {
-            if (err) {
-                throw new Error("Can't find active network interface (disconnected?)")
+    init = () => {       
+        let networkInterfaces = os.networkInterfaces();
+        //We are going to give support for Ethernet, for now
+        let eth = networkInterfaces["Ethernet"];
+        let foundNetwork;
+        for(let i = 0; i < eth.length; i++){
+            if(eth[i]["family"] == "IPv4"){
+                foundNetwork = eth[i];
+                break;
             }
+        }
 
-            const device = Cap.findDevice(obj.ip_address);
-            const filter = 'udp and (dst port 5056 or src port 5056)';
-            const bufSize = 10 * 1024 * 1024;
+        if(foundNetwork == undefined){
+            throw new Error("Valid IPv4 interface not found");
+        }
+        
+        const device = Cap.findDevice(foundNetwork["address"]);
+        
+        const filter = 'udp and (dst port 5056 or src port 5056)';
+        const bufSize = 10 * 1024 * 1024;
 
-            this.linkType = this.cap.open(device, filter, bufSize, this.buffer);
-            this.cap.setMinBytes && this.cap.setMinBytes(0);
-            this.cap.on('packet', this.onPacket);
-        });
+        this.linkType = this.cap.open(device, filter, bufSize, this.buffer);
+        this.cap.setMinBytes && this.cap.setMinBytes(0);
+        this.cap.on('packet', this.onPacket);
     }
 
     onPacket = (nBytes, trunc) => {
