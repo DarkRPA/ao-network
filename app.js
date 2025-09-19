@@ -80,6 +80,14 @@ class App {
 
         this.AODecoder.packetHandler(this.buffer.slice(ret.offset));
     }
+
+    on(eventCode, callback){
+        this.events.on(eventCode, callback);
+    }
+
+    use(callback){
+        this.events.use(callback);
+    }
 }
 
 module.exports = App;
