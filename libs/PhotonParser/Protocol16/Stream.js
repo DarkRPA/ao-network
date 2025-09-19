@@ -1,4 +1,4 @@
-class Stream {
+export class Stream {
     constructor(length) {
         this.buffer = new Buffer(length);
         this.position = 0;
@@ -141,5 +141,3 @@ class Stream {
         return value;
     }
 }
-
-module.exports = Stream;

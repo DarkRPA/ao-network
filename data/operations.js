@@ -1,4 +1,4 @@
-module.exports = {
+export const Operations = {
     Unused: 0,
     Ping: 1,
     Join: 2,

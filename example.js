@@ -1,4 +1,4 @@
-const AONetwork = require('./app');
+import {App as AONetwork} from './app';
 const aoNet = new AONetwork();
 
 /**

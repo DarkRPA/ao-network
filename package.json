@@ -1,8 +1,9 @@
 {
   "name": "ao-network-revitalized",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "A modern Albion Online Packet Sniffer. Forked from revalto/ao-network",
   "main": "app.js",
+  "type": "module",
   "directories": {
     "test": "test"
   },

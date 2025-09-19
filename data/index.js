@@ -1,7 +1,4 @@
-const events        = require('./events');
-const operations    = require('./operations');
+import { Events } from "./events.js";
+import { Operations } from "./operations.js";
 
-module.exports = {
-    events,
-    operations
-};
+export default {Events, Operations};

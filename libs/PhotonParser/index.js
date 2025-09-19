@@ -1,5 +1,4 @@
-const Protocol16 = require('./Protocol16');
+import {Deserializer} from './Protocol16/Deserializer.js';
+import {Stream} from './Protocol16/Stream.js';
 
-module.exports = {
-    Protocol16
-};
+export const Protocol16 = {Deserializer, Stream};

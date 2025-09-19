@@ -1,4 +1,4 @@
-class BinaryReader {
+export class BinaryReader {
     constructor(buf, isBig = true, encoding = 'ascii') {
         this.buf        = buf;
         this.isBig      = isBig;
@@ -65,5 +65,3 @@ class BinaryReader {
         return value;
     }
 }
-
-module.exports = BinaryReader;

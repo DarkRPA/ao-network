@@ -1,4 +1,4 @@
-const events = {
+export const Events = {
     Unused: 0,
     Leave: 1,
     JoinFinished: 2,
@@ -615,5 +615,3 @@ const events = {
     StandTimeFinished: 613,
     EpicAchievementAndStatsUpdate: 614,
 }
-
-module.exports = events;

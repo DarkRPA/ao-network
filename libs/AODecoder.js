@@ -1,7 +1,7 @@
-const BinaryReader = require('./BinaryReader');
-const { Protocol16 } = require('./PhotonParser');
+import {BinaryReader} from './BinaryReader.js';
+import  {Protocol16}  from './PhotonParser/index.js';
 
-class AODecoder {
+export class AODecoder {
     constructor(events, debug) {
         this.events = events;
         this.debug = debug;
@@ -176,5 +176,3 @@ class AODecoder {
         return this._pendingSegments[startSequenceNumber];
     }
 }
-
-module.exports = AODecoder;

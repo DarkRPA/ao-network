@@ -1,20 +1,21 @@
-const { Cap, decoders } = require('cap');
-const os = require("os");
-const { PROTOCOL }      = decoders;
-const AODecoder         = require('./libs/AODecoder');
-const Events            = require('./libs/Events');
-const data              = require('./data');
+import pack from "cap";
+const {Cap, decoders} = pack;
 
-class App {
+import * as os from "os";
+import { AODecoder } from './libs/AODecoder.js';
+import { OnPacketEvent } from './libs/Events.js';
+import * as data from './data/index.js';
+
+export class App {
     constructor(debug = false) {
         this.debug      = debug;
 
         this.cap        = new Cap();
-        this.events     = new Events();
+        this.events     = new OnPacketEvent();
         this.AODecoder  = new AODecoder(this.events, this.debug);
         this.data       = data;
 
-        this.PROTOCOL   = PROTOCOL;
+        this.PROTOCOL   = decoders.PROTOCOL;
         this.linkType   = null;
         this.buffer     = Buffer.alloc(65535);
 
@@ -89,5 +90,3 @@ class App {
         this.events.use(callback);
     }
 }
-
-module.exports = App;

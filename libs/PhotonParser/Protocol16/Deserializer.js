@@ -1,4 +1,4 @@
-class Deserializer {
+export class Deserializer {
     constructor() {
         this.type = {
             Unknown: 0,            // \0
@@ -287,5 +287,3 @@ class Deserializer {
         return dictionary;
     }
 }
-
-module.exports = Deserializer;
