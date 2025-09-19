@@ -7,7 +7,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 
 A modern packet sniffer specialized for Albion Online, providing deep insights into game network operations.
-Forked from [rsxdalv/albion-trader](https://github.com/rsxdalv/albion-trader) with enhanced capabilities.
+Forked from [revalto/ao-network](https://github.com/Revalto/ao-network) with TypeScript support and enhacements
 
 ✨ **Key Features**
 - Real-time packet capture and decoding
@@ -27,7 +27,7 @@ Forked from [rsxdalv/albion-trader](https://github.com/rsxdalv/albion-trader) wi
 ### Installation
 
 ```
-npm install ao-network
+npm install ao-network-revitalized
 ```
 
 ## 📖 Usage Guide
@@ -38,7 +38,7 @@ const AONetwork = require('ao-network');
 const aoNet = new AONetwork();
 
 // Enable global packet processing
-aoNet.events.use((result) => {
+aoNet.use((result) => {
     console.log('[Raw Packet]', result.context);
 });
 ```
@@ -47,7 +47,7 @@ aoNet.events.use((result) => {
 
 #### 1. Generic Event Capture
 ```
-aoNet.events.on(aoNet.AODecoder.messageType.Event, (context) => {
+aoNet.on(aoNet.AODecoder.messageType.Event, (context) => {
     if(!context.parameters.hasOwnProperty('252')) {
         return;
     }
@@ -58,7 +58,7 @@ aoNet.events.on(aoNet.AODecoder.messageType.Event, (context) => {
 
 #### 2. Auction House Interactions
 ```
-aoNet.events.on(aoNet.AODecoder.messageType.OperationResponse, (context) => {
+aoNet.on(aoNet.AODecoder.messageType.OperationResponse, (context) => {
     if(!context.parameters.hasOwnProperty('253') || context.parameters['253'] != aoNet.data.operations.AuctionModifyAuction) {
         return;
     }
@@ -69,7 +69,7 @@ aoNet.events.on(aoNet.AODecoder.messageType.OperationResponse, (context) => {
 
 #### 3. Player Operations Tracking
 ```
-aoNet.events.on(aoNet.AODecoder.messageType.OperationRequest, (context) => {
+aoNet.on(aoNet.AODecoder.messageType.OperationRequest, (context) => {
     console.log(context);
 });
 ```

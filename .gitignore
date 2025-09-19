@@ -3,4 +3,3 @@ node_modules
 main.js
 package-lock*
 .vs*
-index.d.ts
