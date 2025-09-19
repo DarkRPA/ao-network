@@ -1,5 +1,5 @@
 const { Cap, decoders } = require('cap');
-const os = require(os);
+const os = require("os");
 const { PROTOCOL }      = decoders;
 const AODecoder         = require('./libs/AODecoder');
 const Events            = require('./libs/Events');

@@ -1,7 +1,7 @@
 const EventEmitter = require('events');
 
-class MyEmitter extends EventEmitter {
-    myEmit(event, context) {
+class OnPacketEvent extends EventEmitter {
+    emitPacketEvent(event, context) {
         this.emit(event, context);
         this.emit('*', { event, context });
     }
@@ -11,4 +11,4 @@ class MyEmitter extends EventEmitter {
     }
 }
 
-module.exports = MyEmitter;
+module.exports = OnPacketEvent;

@@ -1,20 +1,19 @@
 {
   "name": "ao-network",
   "version": "2.0.2",
-  "description": "",
+  "description": "A modern Albion Online Packet Sniffer.",
   "main": "app.js",
   "directories": {
     "test": "test"
   },
   "dependencies": {
-    "cap": "^0.2.1",
-    "network": "0.7.0"
+    "cap": "^0.2.1"
   },
   "devDependencies": {},
   "scripts": {
     "example": "node example"
   },
   "keywords": [],
-  "author": "",
+  "author": "Revalto, Eryos, ",
   "license": "ISC"
 }

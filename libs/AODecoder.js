@@ -104,21 +104,21 @@ class AODecoder {
 
         switch(messageType) {
             case this.messageType.OperationRequest:
-                this.events.myEmit(
+                this.events.emitPacketEvent(
                     this.messageType.OperationRequest,
                     this.Deserializer.deserializeOperationRequest(payload)
                 );
             break;
 
             case this.messageType.OperationResponse:
-                this.events.myEmit(
+                this.events.emitPacketEvent(
                     this.messageType.OperationResponse,
                     this.Deserializer.deserializeOperationResponse(payload)
                 );
             break;
 
             case this.messageType.Event:
-                this.events.myEmit(
+                this.events.emitPacketEvent(
                     this.messageType.Event,
                     this.Deserializer.deserializeEventData(payload)
                 );
