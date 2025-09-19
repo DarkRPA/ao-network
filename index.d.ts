@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { events } from "./data/events.js";
+import { Cap } from "cap"
 
 /**
  * Entry point for the library, starts packet capturing event handler.
@@ -9,6 +10,11 @@ export class App{
     debug:boolean;
     events:OnPacketEvent;
     AODecoder:AODecoder;
+    cap:Cap;
+    data:any;
+    PROTOCOL:any;
+    linkType:any;
+    buffer:Buffer;
 
     private init():void;
     constructor(debug:boolean);
@@ -18,9 +24,9 @@ export class App{
      * @param eventCode The event code
      * @param callback The function to execute once the event is called
      */
-    on(eventCode:events, callback:(operationCode:MessageType, parameters:any)=>{}):void;
+    on(eventCode:events, callback:(operationCode:MessageType, parameters:any)=>void):void;
     
-    use(callback:(operationCode:MessageType, parameters:any)=>{}):void
+    use(callback:(operationCode:MessageType, parameters:any)=>void):void
 }
 
 /**
@@ -41,7 +47,7 @@ export class OnPacketEvent extends EventEmitter{
      * @param context The context (Parameters) of the event
      */
     emitPacketEvent(event:number, context:Context):void;
-    use(callback:()=>{}):void;
+    use(callback:(operationCode:MessageType, parameters:any)=>void):void;
 }
 
 /**
@@ -116,9 +122,9 @@ export interface CommandType{
 }
 
 export interface MessageType{
-    OperationRequest:2;
-    OperationResponse:3;
-    Event:4;
+    OperationRequest:"2";
+    OperationResponse:"3";
+    Event:"4";
 }
 
 export class AODecoder{
