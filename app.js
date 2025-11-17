@@ -5,6 +5,7 @@ import * as os from "os";
 import { AODecoder } from './libs/AODecoder.js';
 import { OnPacketEvent } from './libs/Events.js';
 import * as data from './data/index.js';
+import * as network from "network";
 
 export class App {
     constructor(debug = false) {
@@ -25,20 +26,19 @@ export class App {
     init = () => {       
         let networkInterfaces = os.networkInterfaces();
         //We are going to give support for Ethernet, for now
-        let eth = networkInterfaces["Ethernet"];
         let foundNetwork;
-        for(let i = 0; i < eth.length; i++){
-            if(eth[i]["family"] == "IPv4"){
-                foundNetwork = eth[i];
-                break;
-            }
-        }
 
-        if(foundNetwork == undefined){
-            throw new Error("Valid IPv4 interface not found");
-        }
+        //We have to be careful, linux and windows differ vastly between naming conventions
+
+        network.get_active_interface((error, data)=>{
+            if(error){
+                throw new Error(error);
+            }
+
+            foundNetwork = data["ip_address"];
+        });
         
-        const device = Cap.findDevice(foundNetwork["address"]);
+        const device = Cap.findDevice(foundNetwork);
         
         const filter = 'udp and (dst port 5056 or src port 5056)';
         const bufSize = 10 * 1024 * 1024;
