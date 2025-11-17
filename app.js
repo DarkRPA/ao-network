@@ -36,16 +36,16 @@ export class App {
             }
 
             foundNetwork = data["ip_address"];
-        });
-        
-        const device = Cap.findDevice(foundNetwork);
-        
-        const filter = 'udp and (dst port 5056 or src port 5056)';
-        const bufSize = 10 * 1024 * 1024;
 
-        this.linkType = this.cap.open(device, filter, bufSize, this.buffer);
-        this.cap.setMinBytes && this.cap.setMinBytes(0);
-        this.cap.on('packet', this.onPacket);
+            const device = Cap.findDevice(foundNetwork);
+        
+            const filter = 'udp and (dst port 5056 or src port 5056)';
+            const bufSize = 10 * 1024 * 1024;
+
+            this.linkType = this.cap.open(device, filter, bufSize, this.buffer);
+            this.cap.setMinBytes && this.cap.setMinBytes(0);
+            this.cap.on('packet', this.onPacket);
+        });
     }
 
     onPacket = (nBytes, trunc) => {
