@@ -151,7 +151,10 @@ export class Deserializer {
     deserializeLong(stream) {
         const buf = stream.ReadBytes(8);
 
-        return buf[0] << 56 || buf[1] << 48 || buf[2] << 40 || buf[3] << 32 || buf[4] << 24 || buf[5] << 16 || buf[6] << 8 || buf[7];
+        const high = (buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3]) >>> 0;
+        const low  = (buf[4] << 24 | buf[5] << 16 | buf[6] << 8 | buf[7]) >>> 0;
+
+        return high * 2 ** 32 + low;
     }
 
     deserializeFloat(stream) {
