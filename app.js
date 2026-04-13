@@ -28,8 +28,6 @@ export class App {
         //We are going to give support for Ethernet, for now
         let foundNetwork;
 
-        //We have to be careful, linux and windows differ vastly between naming conventions
-
         network.get_active_interface((error, data)=>{
             if(error){
                 throw new Error(error);
