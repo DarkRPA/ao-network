@@ -43,6 +43,8 @@ export class AODecoder {
         const isEncrypted = flags == 1;
         const isCrcEnabled = flags == 204;
 
+        
+
         if(isEncrypted) {
             if(this.debug === true) {
                 console.log(`Encrypted packages are not supported`);
@@ -52,17 +54,21 @@ export class AODecoder {
         }
 
         for(let commandIdx = 0; commandIdx < commandCount; commandIdx++) {
+            
             this.handleCommand(p);
         }
     }
 
     handleCommand(p) {
-        const commandType       = p.ReadByte();
-        const channelId         = p.ReadByte();
-        const commandFlags      = p.ReadByte();
-        const unkBytes          = p.ReadByte();
-        let commandLength       = p.ReadInt32();
-        const sequenceNumber    = p.ReadInt32();
+
+        const commandType       = p.ReadUInt8();
+        const channelId         = p.ReadUInt8();
+        const commandFlags      = p.ReadUInt8();
+        const unkBytes          = p.ReadUInt8();
+        let commandLength       = p.ReadUInt32BE();
+        const sequenceNumber    = p.ReadUInt32BE();
+
+        if(commandType != this.commandType.Disconnect && commandType != this.commandType.SendFragment && commandType != this.commandType.SendReliable && commandType != this.commandType.SendUnreliable) return;
 
         if(commandType == this.commandType.SendReliable){
             console.log("");
@@ -87,6 +93,10 @@ export class AODecoder {
         else if(commandType == this.commandType.SendFragment) {
             this.handleSendFragment(p, commandLength);
             return;
+        }
+
+        if(commandLength >= 700) {
+            console.log();
         }
 
         p.position += commandLength;
