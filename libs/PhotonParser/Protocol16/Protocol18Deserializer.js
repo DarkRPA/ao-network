@@ -244,21 +244,11 @@ export class Protocol18Deserializer {
             try {
                 const value = this.deserialize(input, valueTypeCode);
                 dictionary.set(key, value);
-
-                console.log(key, value, valueTypeCode);
-
-                if(key == 252 && value == 7){
-                    console.log(key, value, dictionary);
-                }
             } catch (ex) {
                 throw new Error(`Failed to deserialize parameter key=${key} valueType=0x${valueTypeCode} remaining=${input.remaining}. Original: ${ex.message}`);
             }
         }
 
-
-        if(dictionary.get(253) == 29){
-            console.log(dictionary);
-        }
         return dictionary;
     }
 
