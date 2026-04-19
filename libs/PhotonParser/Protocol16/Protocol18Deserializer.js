@@ -245,7 +245,9 @@ export class Protocol18Deserializer {
                 const value = this.deserialize(input, valueTypeCode);
                 dictionary.set(key, value);
 
-                if(key == 253){
+                console.log(key, value, valueTypeCode);
+
+                if(key == 252 && value == 7){
                     console.log(key, value, dictionary);
                 }
             } catch (ex) {
@@ -336,7 +338,7 @@ export class Protocol18Deserializer {
                 }
                 case Protocol18Type.Float: {
                     const result = new Array(size);
-                    for (let i = 0; i < size; i++) result[i] = input.ReadSingle();
+                    for (let i = 0; i < size; i++) result[i] = input.ReadFloat();
                     return result;
                 }
                 case Protocol18Type.Double: {
