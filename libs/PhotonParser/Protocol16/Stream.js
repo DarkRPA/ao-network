@@ -63,10 +63,16 @@ export class Stream {
             return -1;
         }
 
+        if(this.position >= this.length) return -1;
+
         let value = this.buffer[func](this.position);
         this.position += byte;
 
         return value;
+    }
+
+    get remaining() {
+        return this.buffer.length - this.position;
     }
 
     ReadByte() {
@@ -78,11 +84,11 @@ export class Stream {
     }
 
     ReadUInt16() {
-        return this.Read(2, this.isBig ? 'readUInt16BE' : 'readUInt16LE');
+        return this.Read(2, 'readUInt16LE');
     }
 
     ReadUInt32() {
-        return this.Read(4, this.isBig ? 'readUInt32BE' : 'readUInt32LE');
+        return this.Read(4, 'readUInt32LE');
     }
 
     ReadInt8() {
@@ -90,19 +96,25 @@ export class Stream {
     }
 
     ReadInt16() {
-        return this.Read(2, this.isBig ? 'readInt16BE' : 'readInt16LE');
+        return this.Read(2, 'readInt16LE');
     }
 
     ReadInt32() {
-        return this.Read(4, this.isBig ? 'readInt32BE' : 'readInt32LE');
+        return this.Read(4, 'readInt32LE');
     }
 
     ReadFloat() {
-        return this.Read(4, this.isBig ? 'readFloatBE' : 'readFloatLE');
+        return this.Read(4, 'readFloatLE');
     }
 
     ReadDouble() {
-        return this.Read(8, this.isBig ? 'readDoubleBE' : 'readDoubleLE');
+        return this.Read(8, 'readDoubleLE');
+    }
+
+    ReadSingle() {
+        const b = this.ReadBytes(4);
+        // C# hace reverse si es LittleEndian, indicando que el stream original es BigEndian
+        return b.readFloatBE(0);
     }
 
     ReadLong() {

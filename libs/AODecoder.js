@@ -1,5 +1,6 @@
 import {BinaryReader} from './BinaryReader.js';
 import  {Protocol16}  from './PhotonParser/index.js';
+import { Protocol18Deserializer } from './PhotonParser/Protocol16/Protocol18Deserializer.js';
 
 export class AODecoder {
     constructor(events, debug) {
@@ -22,7 +23,7 @@ export class AODecoder {
             Event: 4
         };
 
-        this.Deserializer = new Protocol16.Deserializer();
+        this.Deserializer = new Protocol16.Protocol18Deserializer();
         this._pendingSegments = {};
     }
 
@@ -34,10 +35,10 @@ export class AODecoder {
         let p = new BinaryReader(buf);
 
         const peerId        = p.ReadInt16();
-        const flags         = p.ReadUInt8();
-        const commandCount  = p.ReadUInt8();
-        const timestamp     = p.ReadUInt32();
-        const challenge     = p.ReadUInt32();
+        const flags         = p.ReadByte();
+        const commandCount  = p.ReadByte();
+        const timestamp     = p.ReadInt32();
+        const challenge     = p.ReadInt32();
 
         const isEncrypted = flags == 1;
         const isCrcEnabled = flags == 204;
@@ -56,12 +57,16 @@ export class AODecoder {
     }
 
     handleCommand(p) {
-        const commandType       = p.ReadUInt8();
-        const channelId         = p.ReadUInt8();
-        const commandFlags      = p.ReadUInt8();
-        const unkBytes          = p.ReadUInt8();
-        let commandLength       = p.ReadUInt32();
-        const sequenceNumber    = p.ReadUInt32();
+        const commandType       = p.ReadByte();
+        const channelId         = p.ReadByte();
+        const commandFlags      = p.ReadByte();
+        const unkBytes          = p.ReadByte();
+        let commandLength       = p.ReadInt32();
+        const sequenceNumber    = p.ReadInt32();
+
+        if(commandType == this.commandType.SendReliable){
+            console.log("");
+        }
 
         commandLength -= this.commandHeaderLength;
 
@@ -93,7 +98,7 @@ export class AODecoder {
         p.position++;
         commandLength--;
 
-        let messageType = p.ReadUInt8();
+        let messageType = p.ReadByte();
         commandLength--;
 
         let operationLength = commandLength;
@@ -106,36 +111,37 @@ export class AODecoder {
             case this.messageType.OperationRequest:
                 this.events.emitPacketEvent(
                     this.messageType.OperationRequest,
-                    this.Deserializer.deserializeOperationRequest(payload)
+                    Protocol18Deserializer.deserializeOperationRequest(payload)
                 );
             break;
 
             case this.messageType.OperationResponse:
                 this.events.emitPacketEvent(
                     this.messageType.OperationResponse,
-                    this.Deserializer.deserializeOperationResponse(payload)
+                    Protocol18Deserializer.deserializeOperationResponse(payload)
                 );
             break;
 
             case this.messageType.Event:
                 this.events.emitPacketEvent(
                     this.messageType.Event,
-                    this.Deserializer.deserializeEventData(payload)
+                    Protocol18Deserializer.deserializeEventData(payload)
                 );
+                //console.log(p)
             break;
         }
     }
 
     handleSendFragment(p, commandLength) {
-        const startSequenceNumber = p.ReadUInt32();
+        const startSequenceNumber = p.ReadInt32();
         commandLength -= 4;
-        const fragmentCount = p.ReadUInt32();
+        const fragmentCount = p.ReadInt32();
         commandLength -= 4;
-        const fragmentNumber = p.ReadUInt32();
+        const fragmentNumber = p.ReadInt32();
         commandLength -= 4;
-        const totalLength = p.ReadUInt32();
+        const totalLength = p.ReadInt32();
         commandLength -= 4;
-        const fragmentOffset = p.ReadUInt32();
+        const fragmentOffset = p.ReadInt32();
         commandLength -= 4;
 
         let fragmentLength = commandLength;

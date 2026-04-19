@@ -40,6 +40,7 @@ export class Deserializer {
     }
 
     deserialize(input) {
+        console.log("")
         return this.deserializeHandler(input, input.ReadByte());
     }
 
@@ -115,6 +116,7 @@ export class Deserializer {
 
     deserializeEventData(stream) {
         const code = this.deserializeByte(stream);
+        if(code == 1) return {};
         const parameters = this.deserializeParameterTable(stream);
 
         return {
@@ -276,13 +278,22 @@ export class Deserializer {
         const dictionarySize = this.deserializeShort(input);
         let dictionary = {};
 
-        for(let i = 0; i < dictionarySize; i++) {
-            const key = input.ReadByte();
-            const valueTypeCode = input.ReadByte();
-            const value = this.deserializeHandler(input, valueTypeCode);
+        while(true){
+            let x = input.ReadByte();
+            let keys = Object.values(this.type);
 
-            dictionary[key] = value;
+            for(let i = 0; i < keys.length; i++){
+                if(x == keys[i]) console.log(input.position, x);
+            }
         }
+
+        // for(let i = 0; i < dictionarySize; i++) {
+        //     const key = input.ReadByte();
+        //     const valueTypeCode = input.ReadByte();
+        //     const value = this.deserializeHandler(input, valueTypeCode);
+
+        //     dictionary[key] = value;
+        // }
 
         return dictionary;
     }
