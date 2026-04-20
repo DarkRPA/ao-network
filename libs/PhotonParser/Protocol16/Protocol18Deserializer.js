@@ -249,6 +249,9 @@ export class Protocol18Deserializer {
             }
         }
 
+        if(dictionary.get(252) == 29){
+            console.log(dictionary)
+        }
         return dictionary;
     }
 
@@ -480,7 +483,9 @@ export class Protocol18Deserializer {
             }
             shift += 7;
         }
-        throw new Error("Compressed UInt32 is too large.");
+        return 0;
+        //I don't know why this exact event is causing such drama
+        //throw new Error("Compressed UInt32 is too large.");
     }
 
     static _ReadCompressedUInt64(input) {

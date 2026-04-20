@@ -34,11 +34,11 @@ export class AODecoder {
 
         let p = new BinaryReader(buf);
 
-        const peerId        = p.ReadInt16();
+        const peerId        = p.ReadUInt16();
         const flags         = p.ReadByte();
         const commandCount  = p.ReadByte();
-        const timestamp     = p.ReadInt32();
-        const challenge     = p.ReadInt32();
+        const timestamp     = p.ReadUInt32();
+        const challenge     = p.ReadUInt32();
 
         const isEncrypted = flags == 1;
         const isCrcEnabled = flags == 204;
@@ -65,8 +65,8 @@ export class AODecoder {
         const channelId         = p.ReadUInt8();
         const commandFlags      = p.ReadUInt8();
         const unkBytes          = p.ReadUInt8();
-        let commandLength       = p.ReadUInt32BE();
-        const sequenceNumber    = p.ReadUInt32BE();
+        let commandLength       = p.ReadUInt32();
+        const sequenceNumber    = p.ReadUInt32();
 
         if(commandType != this.commandType.Disconnect && commandType != this.commandType.SendFragment && commandType != this.commandType.SendReliable && commandType != this.commandType.SendUnreliable) return;
 
@@ -143,15 +143,15 @@ export class AODecoder {
     }
 
     handleSendFragment(p, commandLength) {
-        const startSequenceNumber = p.ReadInt32();
+        const startSequenceNumber = p.ReadUInt32();
         commandLength -= 4;
-        const fragmentCount = p.ReadInt32();
+        const fragmentCount = p.ReadUInt32();
         commandLength -= 4;
-        const fragmentNumber = p.ReadInt32();
+        const fragmentNumber = p.ReadUInt32();
         commandLength -= 4;
-        const totalLength = p.ReadInt32();
+        const totalLength = p.ReadUInt32();
         commandLength -= 4;
-        const fragmentOffset = p.ReadInt32();
+        const fragmentOffset = p.ReadUInt32();
         commandLength -= 4;
 
         let fragmentLength = commandLength;

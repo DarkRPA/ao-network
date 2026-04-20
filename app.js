@@ -76,11 +76,13 @@ export class App {
         if(ret.info.srcport != 5056 && ret.info.dstport != 5056) {
             return;
         }
-        try{
-            this.AODecoder.packetHandler(this.buffer.slice(ret.offset));
-        }catch(err){
-            console.log(err);
-        }
+        // try{
+        //  
+        // }catch(err){
+        //     console.log(err);
+        // }
+
+           this.AODecoder.packetHandler(this.buffer.slice(ret.offset));
     }
 
     on(eventCode, callback){
