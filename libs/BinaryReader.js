@@ -44,11 +44,11 @@ export class BinaryReader {
     }
 
     ReadUInt16() {
-        return this.Read(2, 'readUInt16LE');
+        return this.Read(2, this.isBig ? 'readUInt16BE' : 'readUInt16LE');
     }
 
     ReadUInt32() {
-        return this.Read(4, 'readUInt32LE');
+        return this.Read(4, this.isBig ? 'readUInt32BE' : 'readUInt32LE');
     }
     
 
@@ -65,24 +65,19 @@ export class BinaryReader {
     }
 
     ReadInt16() {
-        const b = this.ReadBytes(2);
-        // Construcción Little-Endian coincidente con el C# original
-        return ((b[0] | (b[1] << 8)) << 16) >> 16; 
+        return this.Read(2, this.isBig ? 'readInt16BE' : 'readInt16LE');
     }
 
     ReadUInt16() {
-        const b = this.ReadBytes(2);
-        return b[0] | (b[1] << 8);
+        return this.Read(2, this.isBig ? 'readUInt16BE' : 'readUInt16LE');
     }
 
     ReadInt32() {
-        const b = this.ReadBytes(4);
-        // Construcción Big-Endian coincidente con el C# original
-        return (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
+        return this.Read(4, this.isBig ? 'readInt32BE' : 'readInt32LE');
     }
 
     ReadFloat() {
-        return this.Read(4, 'readFloatLE');
+        return this.Read(4, this.isBig ? 'readFloatBE' : 'readFloatLE');
     }
 
     ReadSingle() {
@@ -92,7 +87,6 @@ export class BinaryReader {
     }
 
     ReadDouble() {
-        const b = this.ReadBytes(8);
-        return b.ReadDoubleBE(0);
+        return this.Read(8, this.isBig ? 'readDoubleBE' : 'readDoubleLE');
     }
 }
