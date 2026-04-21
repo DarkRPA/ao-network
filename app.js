@@ -82,6 +82,10 @@ export class App {
         //     console.log(err);
         // }
 
+        if(this.debug){
+            console.log("PACKET START:_____");
+        }
+
            this.AODecoder.packetHandler(this.buffer.slice(ret.offset));
     }
 

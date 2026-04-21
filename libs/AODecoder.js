@@ -28,6 +28,9 @@ export class AODecoder {
     }
 
     packetHandler(buf) {
+        if(this.debug){
+            console.log("PACKET_HANDLER: ", buf.position);
+        }
         if(buf.length < this.photonHeaderLength) {
             return;
         }
@@ -43,7 +46,9 @@ export class AODecoder {
         const isEncrypted = flags == 1;
         const isCrcEnabled = flags == 204;
 
-        
+        if(this.debug){
+            console.log("AFTER BINARY READER: ", buf.position, p.position, peerId, flags, commandCount, timestamp, challenge);
+        }
 
         if(isEncrypted) {
             if(this.debug === true) {
@@ -55,18 +60,27 @@ export class AODecoder {
 
         for(let commandIdx = 0; commandIdx < commandCount; commandIdx++) {
             
+            if(this.debug){
+                console.log("COMMAND LOOP: ", commandIdx, commandCount, "POSITION: ", buf.position);
+            }
             this.handleCommand(p);
         }
     }
 
     handleCommand(p) {
-
+        if(this.debug){
+            console.log("HANDLE COMMAND START: ", "POSITION: ", p.position);
+        }
         const commandType       = p.ReadUInt8();
         const channelId         = p.ReadUInt8();
         const commandFlags      = p.ReadUInt8();
         const unkBytes          = p.ReadUInt8();
         let commandLength       = p.ReadUInt32();
         const sequenceNumber    = p.ReadUInt32();
+
+        if(this.debug){
+            console.log("HANDLE COMMAND POST READ: ", "POSITION: ", p.position, commandType, channelId, commandFlags, unkBytes, commandLength, sequenceNumber);
+        }
 
         if(commandType != this.commandType.Disconnect && commandType != this.commandType.SendFragment && commandType != this.commandType.SendReliable && commandType != this.commandType.SendUnreliable) return;
 
@@ -105,6 +119,10 @@ export class AODecoder {
     }
 
     handleSendReliable(p, commandLength) {
+        if(this.debug){
+            console.log("HANDLE SEND RELIABLE START: ", "POSITION: ", p.position, commandLength);
+        }
+
         p.position++;
         commandLength--;
 
@@ -116,6 +134,10 @@ export class AODecoder {
         payload.writeBuffer(p.buf, p.position, commandLength);
 
         p.position += operationLength;
+
+        if(this.debug){
+            console.log("HANDLE SEND RELIABLE POST READ: ", "POSITION: ", p.position, commandLength, messageType, operationLength, payload);
+        }
 
         switch(messageType) {
             case this.messageType.OperationRequest:
@@ -143,6 +165,9 @@ export class AODecoder {
     }
 
     handleSendFragment(p, commandLength) {
+        if(this.debug){
+            console.log("HANDLE SEND FRAGMENT START: ", "POSITION: ", p.position, commandLength);
+        }
         const startSequenceNumber = p.ReadUInt32();
         commandLength -= 4;
         const fragmentCount = p.ReadUInt32();
@@ -155,6 +180,10 @@ export class AODecoder {
         commandLength -= 4;
 
         let fragmentLength = commandLength;
+
+        if(this.debug){
+            console.log("HANDLE SEND POST READ: ", "POSITION: ", p.position, commandLength, "|", startSequenceNumber, fragmentCount, fragmentNumber, totalLength, fragmentOffset);
+        }
 
         this.handleSegmentedPayload(startSequenceNumber, totalLength, fragmentLength, fragmentOffset, p);
     }

@@ -243,6 +243,8 @@ export class Protocol18Deserializer {
             const valueTypeCode = input.ReadByte();
             try {
                 const value = this.deserialize(input, valueTypeCode);
+                //if(value == "FinoGod")
+                    //console.log()
                 dictionary.set(key, value);
             } catch (ex) {
                 throw new Error(`Failed to deserialize parameter key=${key} valueType=0x${valueTypeCode} remaining=${input.remaining}. Original: ${ex.message}`);
@@ -250,8 +252,10 @@ export class Protocol18Deserializer {
         }
 
         if(dictionary.get(252) == 29){
-            console.log(dictionary)
+            //console.log(dictionary)
         }
+
+        //console.log(dictionary)
         return dictionary;
     }
 
