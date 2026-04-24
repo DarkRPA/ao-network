@@ -143,8 +143,8 @@ export class Protocol18Deserializer {
     }
 
     static deserializeEventData(input) {
-        const code = input.ReadByte();
-        const parameters = this._deserializeParameterTable(input);
+        let code = input.ReadByte();
+        let parameters = this._deserializeParameterTable(input);
         return new EventData(code, parameters);
     }
 
@@ -242,6 +242,8 @@ export class Protocol18Deserializer {
             const key = input.ReadByte();
             const valueTypeCode = input.ReadByte();
             try {
+                if(valueTypeCode == 64) 
+                    console.log()
                 const value = this.deserialize(input, valueTypeCode);
                 //if(value == "FinoGod")
                     //console.log()
@@ -288,13 +290,16 @@ export class Protocol18Deserializer {
 
     static _deserializeNestedArray(input) {
         const size = this._ReadCount(input);
-        const typeCode = input.ReadByte();
+        let typeCode = input.ReadByte();
         const result = new Array(size);
 
         for (let i = 0; i < size; i++) {
             const itemStart = input.position;
             try {
                 result[i] = this.deserialize(input, typeCode);
+                if(i < size){
+                    typeCode = input.ReadByte();
+                }
             } catch (ex) {
                 input.position = itemStart;
                 const repeatedValue = this._tryDeserializeNestedItemWithRepeatedTypeCode(input, typeCode);
@@ -487,9 +492,9 @@ export class Protocol18Deserializer {
             }
             shift += 7;
         }
-        return 0;
+        //return 0;
         //I don't know why this exact event is causing such drama
-        //throw new Error("Compressed UInt32 is too large.");
+        throw new Error("Compressed UInt32 is too large.");
     }
 
     static _ReadCompressedUInt64(input) {
