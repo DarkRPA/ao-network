@@ -78,6 +78,10 @@ export class AODecoder {
         let commandLength       = p.ReadUInt32();
         const sequenceNumber    = p.ReadUInt32();
 
+        if(commandLength >= 1000){
+            return this.tryRestartPackage(p);
+        }
+
         if(this.debug){
             console.log("HANDLE COMMAND POST READ: ", "POSITION: ", p.position, commandType, channelId, commandFlags, unkBytes, commandLength, sequenceNumber);
         }
@@ -109,10 +113,6 @@ export class AODecoder {
             return;
         }
 
-        if(commandLength >= 700) {
-            console.log();
-        }
-
         p.position += commandLength;
 
         return;
@@ -136,23 +136,7 @@ export class AODecoder {
             payload = new Protocol16.Stream(commandLength);
         } catch (error) {
             //Lets try and go back X amount to the start of the command.
-            let startFound = false;
-            while(!startFound){
-                let beforeP = p.position - 1;
-                if(p.buf[p.position] == 4 && p.buf[beforeP] == 243){
-                    //It seems this is the start of the packet, since this only happens in segmented packets
-                    //we are going 16 bytes earlier.
-                    if(p.buf[beforeP - 16] != 7){
-                        p.position = beforeP - 12;
-                    }else{
-                        p.position = beforeP - 16;
-                    }
-                    this.handleCommand(p);
-                    return;
-                }else{
-                    p.position--;
-                }
-            }
+            this.tryRestartPackage(p);
         }
         
         payload.writeBuffer(p.buf, p.position, commandLength);
@@ -185,6 +169,26 @@ export class AODecoder {
                 );
                 //console.log(p)
             break;
+        }
+    }
+
+    tryRestartPackage(p){
+        let startFound = false;
+        while(!startFound){
+            let beforeP = p.position - 1;
+            if(p.buf[p.position] == 4 && p.buf[beforeP] == 243){
+                //It seems this is the start of the packet, since this only happens in segmented packets
+                //we are going 16 bytes earlier.
+                if(p.buf[beforeP - 16] != 7){
+                    p.position = beforeP - 12;
+                }else{
+                    p.position = beforeP - 16;
+                }
+                this.handleCommand(p);
+                return;
+            }else{
+                p.position--;
+            }
         }
     }
 
@@ -236,10 +240,16 @@ export class AODecoder {
             return this._pendingSegments[startSequenceNumber];
         }
 
+        let buffer1;
+        try {
+            buffer1 = new Buffer(totalLength);
+        } catch (error) {
+            return this.tryRestartPackage(p);
+        }
         this._pendingSegments[startSequenceNumber] = {
             totalLength,
             bytesWritten: 0,
-            totalPayload: new Buffer(totalLength)
+            totalPayload: buffer1
         };
 
         return this._pendingSegments[startSequenceNumber];
