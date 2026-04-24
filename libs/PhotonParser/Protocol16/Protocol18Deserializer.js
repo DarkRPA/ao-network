@@ -248,11 +248,12 @@ export class Protocol18Deserializer {
                 //if(value == "FinoGod")
                     //console.log()
                 dictionary.set(key, value);
+                
             } catch (ex) {
                 throw new Error(`Failed to deserialize parameter key=${key} valueType=0x${valueTypeCode} remaining=${input.remaining}. Original: ${ex.message}`);
             }
         }
-
+        console.log(dictionary)
         if(dictionary.get(252) == 29){
             //console.log(dictionary)
         }
@@ -297,7 +298,7 @@ export class Protocol18Deserializer {
             const itemStart = input.position;
             try {
                 result[i] = this.deserialize(input, typeCode);
-                if(i < size){
+                if(i+1 < size){
                     typeCode = input.ReadByte();
                 }
             } catch (ex) {
