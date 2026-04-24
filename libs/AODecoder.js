@@ -130,7 +130,31 @@ export class AODecoder {
         commandLength--;
 
         let operationLength = commandLength;
-        let payload = new Protocol16.Stream(commandLength);
+
+        let payload;
+        try {
+            payload = new Protocol16.Stream(commandLength);
+        } catch (error) {
+            //Lets try and go back X amount to the start of the command.
+            let startFound = false;
+            while(!startFound){
+                let beforeP = p.position - 1;
+                if(p.buf[p.position] == 4 && p.buf[beforeP] == 243){
+                    //It seems this is the start of the packet, since this only happens in segmented packets
+                    //we are going 16 bytes earlier.
+                    if(p.buf[beforeP - 16] != 7){
+                        p.position = beforeP - 12;
+                    }else{
+                        p.position = beforeP - 16;
+                    }
+                    this.handleCommand(p);
+                    return;
+                }else{
+                    p.position--;
+                }
+            }
+        }
+        
         payload.writeBuffer(p.buf, p.position, commandLength);
 
         p.position += operationLength;
