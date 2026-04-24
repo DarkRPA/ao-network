@@ -84,10 +84,6 @@ export class AODecoder {
 
         if(commandType != this.commandType.Disconnect && commandType != this.commandType.SendFragment && commandType != this.commandType.SendReliable && commandType != this.commandType.SendUnreliable) return;
 
-        if(commandType == this.commandType.SendReliable){
-            //console.log("");
-        }
-
         commandLength -= this.commandHeaderLength;
 
         if(commandType == this.commandType.Disconnect) {
