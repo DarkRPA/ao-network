@@ -101,16 +101,16 @@ export class AODecoder {
 
         switch(commandType){
             case this.commandType.SendReliable:
-                bytes = this.CODIGO_6;
+                bytes = Math.abs(this.CODIGO_6);
                 break;
             case this.commandType.SendUnreliable:
-                bytes = this.CODIGO_7;
+                bytes = Math.abs(this.CODIGO_7);
                 break;
             case this.commandType.SendFragment:
-                bytes = this.CODIGO_8;
+                bytes = Math.abs(this.CODIGO_8);
                 break;
         }
-
+        
         if(!this.checkBytesPlus(p, bytes)){
             return this.handleRetrySkip(p);
         }
@@ -199,7 +199,8 @@ export class AODecoder {
     }
 
     checkBytesPlus(p, bytes){
-        return p.buf[p.position + Math.abs(bytes)] == 243 && p.buf[p.position + Math.abs(bytes) + 1] == 4;
+        let starting = p.position - 1;
+        return p.buf[starting + Math.abs(bytes)] == 243 && p.buf[starting + Math.abs(bytes) + 1] == 4;
     }
 
     checkBytesPlusReliable(p){

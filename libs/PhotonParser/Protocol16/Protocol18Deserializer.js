@@ -58,6 +58,8 @@ class EventData {
     constructor(code, parameters) {
         this.code = code;
         this.parameters = parameters; // Map
+
+        console.log(parameters);
     }
 
     toString(){
