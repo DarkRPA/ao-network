@@ -58,9 +58,21 @@ class EventData {
     constructor(code, parameters) {
         this.code = code;
         this.parameters = parameters; // Map
-        if(this.code == 3){
-            //console.log(this.parameters);
+        if(this.code == 1){
+            let eventCode = this.parameters.get(252);
+            //console.log(this.toString());
+            if(eventCode == 140){
+                console.log(this.toString())
+            }
         }
+    }
+
+    toString(){
+        let result = "";
+        let paramKeys = this.parameters.keys();
+        paramKeys.forEach(key => result = result.concat(`${key}:${this.parameters.get(key)}\n`));
+
+        return result;
     }
 }
 
@@ -145,6 +157,8 @@ export class Protocol18Deserializer {
     static deserializeEventData(input) {
         let code = input.ReadByte();
         let parameters = this._deserializeParameterTable(input);
+        if(parameters.get(252) == 29)
+            console.log(parameters);
         return new EventData(code, parameters);
     }
 

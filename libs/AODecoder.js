@@ -59,11 +59,14 @@ export class AODecoder {
         }
 
         for(let commandIdx = 0; commandIdx < commandCount; commandIdx++) {
-            
             if(this.debug){
                 console.log("COMMAND LOOP: ", commandIdx, commandCount, "POSITION: ", buf.position);
             }
-            this.handleCommand(p);
+            let code = this.handleCommand(p);
+            if(code == 1){
+                //Hemos relocalizado el comando, volvemos a intentarlo
+                commandIdx--;
+            }
         }
     }
 
@@ -72,6 +75,22 @@ export class AODecoder {
             console.log("HANDLE COMMAND START: ", "POSITION: ", p.position);
         }
         const commandType       = p.ReadUInt8();
+        
+        switch(commandType){
+            case this.commandType.Disconnect:
+            case this.commandType.SendFragment:
+            case this.commandType.SendReliable:
+            case this.commandType.SendUnreliable:
+                break;
+            default:
+                let tryToGoBack = this.retryCommand(p);
+                if(tryToGoBack != -1){
+                    //Inevitablemente tenemos que skipear este comando
+                    return this.trySkipCommand(p);
+                }
+                return tryToGoBack;
+        }
+
         const channelId         = p.ReadUInt8();
         const commandFlags      = p.ReadUInt8();
         const unkBytes          = p.ReadUInt8();
@@ -87,7 +106,7 @@ export class AODecoder {
         commandLength -= this.commandHeaderLength;
 
         if(commandType == this.commandType.Disconnect) {
-            return;
+            return 0;
         }
 
         else if(commandType == this.commandType.SendReliable || commandType == this.commandType.SendUnreliable) {
@@ -97,17 +116,17 @@ export class AODecoder {
             }
 
             this.handleSendReliable(p, commandLength);
-            return;
+            return 0;
         }
 
         else if(commandType == this.commandType.SendFragment) {
             this.handleSendFragment(p, commandLength);
-            return;
+            return 0;
         }
 
         p.position += commandLength;
 
-        return;
+        return 0;
     }
 
     handleSendReliable(p, commandLength) {
@@ -158,31 +177,40 @@ export class AODecoder {
         }
     }
 
-    trySkipCommand(p){
+    retryCommand(p){
+        return this.trySkipCommand(p, true);
+    }
+
+    trySkipCommand(p, retry = false){
+        let startingPosition = p.position;
         let startFound = false;
+        let sumatorio = (!retry)?1:-1;
+        let codigo6 = -12;
+        let codigo7 = -16;
+
         while(!startFound){
-            let afterP = p.position + 1;
-            if(p.position >= p.length) return;
-            if(p.buf[p.position] == 243 && p.buf[p.position + 1] == 4){
+            if(p.position >= p.length || p.position < 0) startFound = true;
+            if(p.buf[p.position] == 243 && p.buf[p.position + Math.abs(sumatorio)] == 4){
                 //It seems this is the start of the packet, since this only happens in segmented packets
                 //we are going 16 bytes earlier.
-                if(p.buf[p.position - 16] == 7){
-                    p.position -= 16;
-                    this.handleCommand(p)
-                    return;
+                if(p.buf[p.position + codigo7] == 7){
+                    p.position += codigo7;
+                    return (retry)?1:0;
                 }
 
-                if(p.buf[p.position - 12] == 6){
-                    p.position -= 12;
-                    this.handleCommand(p);
-                    return;
+                if(p.buf[p.position + codigo6] == 6){
+                    p.position += codigo6;
+                    return (retry)?1:0;
                 }
 
-                p.position++;
+                p.position += sumatorio;
             }else{
-                p.position++;
+                p.position += sumatorio;
             }
         }
+
+        p.position = startingPosition;
+        return -1;
     }
 
     handleSendFragment(p, commandLength) {
