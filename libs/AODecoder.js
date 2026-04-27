@@ -2,7 +2,11 @@ import {BinaryReader} from './BinaryReader.js';
 import  {Protocol16}  from './PhotonParser/index.js';
 import { Protocol18Deserializer } from './PhotonParser/Protocol16/Protocol18Deserializer.js';
 
+
 export class AODecoder {
+    CODIGO_6 = -12;
+    CODIGO_7 = -16;
+    CODIGO_8 = -32;
     constructor(events, debug) {
         this.events = events;
         this.debug = debug;
@@ -83,12 +87,32 @@ export class AODecoder {
             case this.commandType.SendUnreliable:
                 break;
             default:
-                let tryToGoBack = this.retryCommand(p);
-                if(tryToGoBack != -1){
-                    //Inevitablemente tenemos que skipear este comando
-                    return this.trySkipCommand(p);
-                }
-                return tryToGoBack;
+                return this.handleRetrySkip(p);
+        }
+
+        if(commandType == this.commandType.Disconnect) {
+            return 0;
+        }
+
+        //Tenemos que comprobar que despues de 12, 16 o 32 bytes respectivamente haya un código 243+4 para confirmar la integridad
+        //del paquete
+        let actualPosition = p.position;
+        let bytes = 0;
+
+        switch(commandType){
+            case this.commandType.SendReliable:
+                bytes = this.CODIGO_6;
+                break;
+            case this.commandType.SendUnreliable:
+                bytes = this.CODIGO_7;
+                break;
+            case this.commandType.SendFragment:
+                bytes = this.CODIGO_8;
+                break;
+        }
+
+        if(!this.checkBytesPlus(p, bytes)){
+            return this.handleRetrySkip(p);
         }
 
         const channelId         = p.ReadUInt8();
@@ -105,11 +129,8 @@ export class AODecoder {
 
         commandLength -= this.commandHeaderLength;
 
-        if(commandType == this.commandType.Disconnect) {
-            return 0;
-        }
-
-        else if(commandType == this.commandType.SendReliable || commandType == this.commandType.SendUnreliable) {
+    
+        if(commandType == this.commandType.SendReliable || commandType == this.commandType.SendUnreliable) {
             if(commandType == this.commandType.SendUnreliable) {
                 p.position += 4;
                 commandLength -= 4;
@@ -177,6 +198,31 @@ export class AODecoder {
         }
     }
 
+    checkBytesPlus(p, bytes){
+        return p.buf[p.position + Math.abs(bytes)] == 243 && p.buf[p.position + Math.abs(bytes) + 1] == 4;
+    }
+
+    checkBytesPlusReliable(p){
+        return this.checkBytesPlus(p, this.CODIGO_6);
+    }
+
+    checkBytesPlusUnReliable(p){
+        return this.checkBytesPlus(p, this.CODIGO_7);
+    }
+
+    checkBytesPlusFragment(p){
+        return this.checkBytesPlus(p, this.CODIGO_8);
+    }
+
+    handleRetrySkip(p){
+        let tryToGoBack = this.retryCommand(p);
+        if(tryToGoBack != -1){
+            //Inevitablemente tenemos que skipear este comando
+            return this.trySkipCommand(p);
+        }
+        return tryToGoBack;
+    }
+
     retryCommand(p){
         return this.trySkipCommand(p, true);
     }
@@ -185,21 +231,24 @@ export class AODecoder {
         let startingPosition = p.position;
         let startFound = false;
         let sumatorio = (!retry)?1:-1;
-        let codigo6 = -12;
-        let codigo7 = -16;
-
+        
         while(!startFound){
             if(p.position >= p.length || p.position < 0) startFound = true;
             if(p.buf[p.position] == 243 && p.buf[p.position + Math.abs(sumatorio)] == 4){
                 //It seems this is the start of the packet, since this only happens in segmented packets
                 //we are going 16 bytes earlier.
-                if(p.buf[p.position + codigo7] == 7){
-                    p.position += codigo7;
+                if(p.buf[p.position + this.CODIGO_7] == this.commandType.SendUnreliable){
+                    p.position += this.CODIGO_7;
                     return (retry)?1:0;
                 }
 
-                if(p.buf[p.position + codigo6] == 6){
-                    p.position += codigo6;
+                if(p.buf[p.position + this.CODIGO_6] == this.commandType.SendReliable){
+                    p.position += this.CODIGO_6;
+                    return (retry)?1:0;
+                }
+
+                if(p.buf[p.position + this.CODIGO_8] == this.commandType.SendFragment){
+                    p.position += this.CODIGO_8;
                     return (retry)?1:0;
                 }
 
