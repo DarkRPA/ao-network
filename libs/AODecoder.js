@@ -200,7 +200,7 @@ export class AODecoder {
 
     checkBytesPlus(p, bytes){
         let starting = p.position - 1;
-        return p.buf[starting + Math.abs(bytes)] == 243 && p.buf[starting + Math.abs(bytes) + 1] == 4;
+        return p.buf[starting + Math.abs(bytes)] == 243 && (p.buf[starting + Math.abs(bytes) + 1] == this.messageType.Event || p.buf[starting + Math.abs(bytes) + 1] == this.messageType.OperationRequest || p.buf[starting + Math.abs(bytes) + 1] == this.messageType.OperationResponse);
     }
 
     checkBytesPlusReliable(p){
@@ -235,7 +235,7 @@ export class AODecoder {
         
         while(!startFound){
             if(p.position >= p.length || p.position < 0) startFound = true;
-            if(p.buf[p.position] == 243 && p.buf[p.position + Math.abs(sumatorio)] == 4){
+            if(p.buf[p.position] == 243 && (p.buf[p.position + Math.abs(sumatorio)] == this.messageType.Event || p.buf[p.position + Math.abs(sumatorio)] == this.messageType.OperationRequest || p.buf[p.position + Math.abs(sumatorio)] == this.messageType.OperationResponse)){
                 //It seems this is the start of the packet, since this only happens in segmented packets
                 //we are going 16 bytes earlier.
                 if(p.buf[p.position + this.CODIGO_7] == this.commandType.SendUnreliable){

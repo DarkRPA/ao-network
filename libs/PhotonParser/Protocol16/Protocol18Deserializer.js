@@ -43,6 +43,7 @@ class OperationRequest {
         this.operationCode = operationCode;
         this.parameters = parameters; // Map
     }
+
 }
 
 class OperationResponse {
@@ -58,8 +59,6 @@ class EventData {
     constructor(code, parameters) {
         this.code = code;
         this.parameters = parameters; // Map
-
-        console.log(parameters);
     }
 
     toString(){
