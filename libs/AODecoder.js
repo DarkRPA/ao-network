@@ -4,9 +4,13 @@ import { Protocol18Deserializer } from './PhotonParser/Protocol16/Protocol18Dese
 
 
 export class AODecoder {
+    CODIGO_1 = -12;
+    CODIGO_4 = -12;
+    CODIGO_5 = -12;
     CODIGO_6 = -12;
     CODIGO_7 = -16;
     CODIGO_8 = -32;
+
     constructor(events, debug) {
         this.events = events;
         this.debug = debug;
@@ -15,6 +19,8 @@ export class AODecoder {
         this.photonHeaderLength = 12;
 
         this.commandType = {
+            Ping: 5,
+            Acknowledge: 1,
             Disconnect: 4,
             SendReliable: 6,
             SendUnreliable: 7,
@@ -66,10 +72,10 @@ export class AODecoder {
             if(this.debug){
                 console.log("COMMAND LOOP: ", commandIdx, commandCount, "POSITION: ", buf.position);
             }
-            let code = this.handleCommand(p);
-            if(code == 1){
-                //Hemos relocalizado el comando, volvemos a intentarlo
-                commandIdx--;
+            try {
+                this.handleCommand(p);
+            } catch (error) {
+                this.trySkipCommand(p);
             }
         }
     }
@@ -78,43 +84,8 @@ export class AODecoder {
         if(this.debug){
             console.log("HANDLE COMMAND START: ", "POSITION: ", p.position);
         }
-        const commandType       = p.ReadUInt8();
-        
-        switch(commandType){
-            case this.commandType.Disconnect:
-            case this.commandType.SendFragment:
-            case this.commandType.SendReliable:
-            case this.commandType.SendUnreliable:
-                break;
-            default:
-                return this.handleRetrySkip(p);
-        }
-
-        if(commandType == this.commandType.Disconnect) {
-            return 0;
-        }
-
-        //Tenemos que comprobar que despues de 12, 16 o 32 bytes respectivamente haya un código 243+4 para confirmar la integridad
-        //del paquete
         let actualPosition = p.position;
-        let bytes = 0;
-
-        switch(commandType){
-            case this.commandType.SendReliable:
-                bytes = Math.abs(this.CODIGO_6);
-                break;
-            case this.commandType.SendUnreliable:
-                bytes = Math.abs(this.CODIGO_7);
-                break;
-            case this.commandType.SendFragment:
-                bytes = Math.abs(this.CODIGO_8);
-                break;
-        }
-        
-        if(!this.checkBytesPlus(p, bytes)){
-            return this.handleRetrySkip(p);
-        }
-
+        const commandType       = p.ReadUInt8();
         const channelId         = p.ReadUInt8();
         const commandFlags      = p.ReadUInt8();
         const unkBytes          = p.ReadUInt8();
@@ -148,6 +119,27 @@ export class AODecoder {
         p.position += commandLength;
 
         return 0;
+    }
+
+    checkIfLengthIsCorrect(p, length, startingPoint){
+        return (p.buf[startingPoint + length] == this.commandType.SendReliable || p.buf[startingPoint + length] == this.commandType.SendFragment || p.buf[startingPoint + length] == this.commandType.SendUnreliable || p.buf[startingPoint + length] == this.commandType.SendFragment || p.buf[startingPoint + length] == 0);
+    }
+
+    findCorrectLengthOfCommand(p, startingPoint){
+        let internalCounter = p.position;
+        let found = false;
+        let result = 0;
+
+        while(!found){
+            if((p.buf[internalCounter] == this.commandType.SendFragment || p.buf[internalCounter] == this.commandType.SendReliable || p.buf[internalCounter] == this.commandType.SendUnreliable) && (p.buf[internalCounter + 3] == 0)){
+                found = true;
+                result = (internalCounter - startingPoint);
+            }else{
+                internalCounter++;
+            }
+        }
+
+        return result;
     }
 
     handleSendReliable(p, commandLength) {
@@ -191,7 +183,7 @@ export class AODecoder {
             case this.messageType.Event:
                 this.events.emitPacketEvent(
                     this.messageType.Event,
-                    Protocol18Deserializer.deserializeEventData(payload)
+                    Protocol18Deserializer.deserializeEventData(payload, p)
                 );
                 //console.log(p)
             break;
@@ -216,8 +208,10 @@ export class AODecoder {
     }
 
     handleRetrySkip(p){
+        return this.trySkipCommand(p);
+
         let tryToGoBack = this.retryCommand(p);
-        if(tryToGoBack != -1){
+        if(tryToGoBack == -1){
             //Inevitablemente tenemos que skipear este comando
             return this.trySkipCommand(p);
         }
@@ -245,6 +239,7 @@ export class AODecoder {
 
                 if(p.buf[p.position + this.CODIGO_6] == this.commandType.SendReliable){
                     p.position += this.CODIGO_6;
+                    //console.log("POSITION SKIPEADA: ", p.position)
                     return (retry)?1:0;
                 }
 
@@ -257,6 +252,10 @@ export class AODecoder {
             }else{
                 p.position += sumatorio;
             }
+        }
+
+        if(!retry){
+            return -2;
         }
 
         p.position = startingPosition;

@@ -148,9 +148,9 @@ export class Protocol18Deserializer {
         return new OperationResponse(operationCode, returnCode, debugMessage, parameters);
     }
 
-    static deserializeEventData(input) {
+    static deserializeEventData(input, p) {
         let code = input.ReadByte();
-        let parameters = this._deserializeParameterTable(input);
+        let parameters = this._deserializeParameterTable(input, p);
 
         return new EventData(code, parameters);
     }
@@ -241,7 +241,7 @@ export class Protocol18Deserializer {
         }
     }
 
-    static _deserializeParameterTable(input) {
+    static _deserializeParameterTable(input, p) {
         const dictionarySize = this._ReadCount(input);
         const dictionary = new Map();
 
@@ -251,7 +251,6 @@ export class Protocol18Deserializer {
             try {
                 const value = this.deserialize(input, valueTypeCode);
                 dictionary.set(key, value);
-                
             } catch (ex) {
                 throw new Error(`Failed to deserialize parameter key=${key} valueType=0x${valueTypeCode} remaining=${input.remaining}. Original: ${ex.message}`);
             }
