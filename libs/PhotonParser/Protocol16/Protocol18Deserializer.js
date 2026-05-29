@@ -1,6 +1,6 @@
 import { Buffer } from "buffer"
 
-const Protocol18Type = {
+const Protocol18Type = Object.freeze({
     Unknown: 0,
     Boolean: 2,
     Byte: 3,
@@ -36,14 +36,13 @@ const Protocol18Type = {
     ByteZero: 34,
     Array: 0x40,
     CustomTypeSlim: 0x80,
-};
+});
 
 class OperationRequest {
     constructor(operationCode, parameters) {
         this.operationCode = operationCode;
         this.parameters = parameters; // Map
     }
-
 }
 
 class OperationResponse {
@@ -64,13 +63,15 @@ class EventData {
     toString(){
         let result = "";
         let paramKeys = this.parameters.keys();
-        paramKeys.forEach(key => result = result.concat(`${key}:${this.parameters.get(key)}\n`));
-
+        for (const key of paramKeys) {
+            result = result.concat(`${key}:${this.parameters.get(key)}\n`);
+        }
         return result;
     }
 }
 
-// Clase auxiliar para reemplazar el uso de System.IO.Stream
+// OPTIMIZACIÓN: Se cambiaron los ReadBytes() constantes por lecturas nativas directas al buffer
+// Esto reduce drásticamente la creación de objetos innecesarios y alivia el Garbage Collector.
 class ByteBuffer {
     constructor(buffer) {
         this.buffer = buffer;
@@ -99,31 +100,38 @@ class ByteBuffer {
     }
 
     ReadInt16() {
-        const b = this.ReadBytes(2);
-        // Construcción Little-Endian coincidente con el C# original
-        return ((b[0] | (b[1] << 8)) << 16) >> 16; 
+        if (this.remaining < 2) throw new Error("Unexpected end of stream.");
+        const val = this.buffer.readInt16LE(this.position); // Little-Endian 
+        this.position += 2;
+        return val;
     }
 
     ReadUInt16() {
-        const b = this.ReadBytes(2);
-        return b[0] | (b[1] << 8);
+        if (this.remaining < 2) throw new Error("Unexpected end of stream.");
+        const val = this.buffer.readUInt16LE(this.position); // Little-Endian
+        this.position += 2;
+        return val;
     }
 
     ReadInt32() {
-        const b = this.ReadBytes(4);
-        // Construcción Big-Endian coincidente con el C# original
-        return (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
+        if (this.remaining < 4) throw new Error("Unexpected end of stream.");
+        const val = this.buffer.readInt32BE(this.position); // Big-Endian
+        this.position += 4;
+        return val;
     }
 
     ReadSingle() {
-        const b = this.ReadBytes(4);
-        // C# hace reverse si es LittleEndian, indicando que el stream original es BigEndian
-        return b.ReadFloatBE(0);
+        if (this.remaining < 4) throw new Error("Unexpected end of stream.");
+        const val = this.buffer.readFloatBE(this.position); // Corregido: en minúscula y nativo
+        this.position += 4;
+        return val;
     }
 
     ReadDouble() {
-        const b = this.ReadBytes(8);
-        return b.ReadDoubleBE(0);
+        if (this.remaining < 8) throw new Error("Unexpected end of stream.");
+        const val = this.buffer.readDoubleBE(this.position); // Corregido: en minúscula y nativo
+        this.position += 8;
+        return val;
     }
 }
 
@@ -148,9 +156,9 @@ export class Protocol18Deserializer {
         return new OperationResponse(operationCode, returnCode, debugMessage, parameters);
     }
 
-    static deserializeEventData(input, p) {
+    static deserializeEventData(input) {
         let code = input.ReadByte();
-        let parameters = this._deserializeParameterTable(input, p);
+        let parameters = this._deserializeParameterTable(input);
 
         return new EventData(code, parameters);
     }
@@ -175,12 +183,11 @@ export class Protocol18Deserializer {
             case Protocol18Type.Short:
                 return input.ReadInt16();
             case Protocol18Type.Float:
-                return input.ReadFloat();
+                return input.ReadSingle(); // Cambio: Antes decía ReadFloat() en lugar de ReadSingle()
             case Protocol18Type.Double:
                 return input.ReadDouble();
             case Protocol18Type.String:
-                let r = this._ReadString(input);
-                return r
+                return this._ReadString(input);
             case Protocol18Type.CompressedInt:
                 return this._ReadCompressedInt32(input);
             case Protocol18Type.CompressedLong:
@@ -220,17 +227,14 @@ export class Protocol18Deserializer {
             case Protocol18Type.BooleanTrue:
                 return true;
             case Protocol18Type.ShortZero:
-                return 0; // JS numbers
             case Protocol18Type.IntZero:
-                return 0;
+            case Protocol18Type.ByteZero:
+                return 0; // JS numbers
             case Protocol18Type.LongZero:
                 return 0n; // BigInt
             case Protocol18Type.FloatZero:
-                return 0.0;
             case Protocol18Type.DoubleZero:
                 return 0.0;
-            case Protocol18Type.ByteZero:
-                return 0;
             case Protocol18Type.Array:
                 return this._deserializeNestedArray(input);
             default:
@@ -241,7 +245,7 @@ export class Protocol18Deserializer {
         }
     }
 
-    static _deserializeParameterTable(input, p) {
+    static _deserializeParameterTable(input) {
         const dictionarySize = this._ReadCount(input);
         const dictionary = new Map();
 
@@ -273,7 +277,7 @@ export class Protocol18Deserializer {
     }
 
     static _deserializeHashtable(input) {
-        return this._deserializeDictionary(input); // En JS, Map cumple la función de ambos (Hashtable y Dictionary)
+        return this._deserializeDictionary(input); 
     }
 
     static _deserializeObjectArray(input) {
@@ -337,7 +341,7 @@ export class Protocol18Deserializer {
                 }
                 case Protocol18Type.Float: {
                     const result = new Array(size);
-                    for (let i = 0; i < size; i++) result[i] = input.ReadFloat();
+                    for (let i = 0; i < size; i++) result[i] = input.ReadSingle(); // Cambio: ReadFloat -> ReadSingle
                     return result;
                 }
                 case Protocol18Type.Double: {
@@ -459,7 +463,6 @@ export class Protocol18Deserializer {
         const start = input.position;
         try {
             const compressed = this._ReadCompressedUInt32(input);
-            // JS Number type limit check similar to int.MaxValue
             if (compressed > 2147483647) {
                 input.position = start;
                 return null;
@@ -485,12 +488,12 @@ export class Protocol18Deserializer {
             const current = input.ReadByte();
             value |= (current & 0x7F) << shift;
             if ((current & 0x80) === 0) {
-                return value; // Cast a Unsigned Int32
+                // BUG ARREGLADO: En JS, para forzar un UInt32, DEBES usar ">>> 0"
+                // Si el bit 31 estaba en 1, antes te devolvía un número negativo rompiendo todo
+                return value >>> 0; 
             }
             shift += 7;
         }
-        //return 0;
-        //I don't know why this exact event is causing such drama
         throw new Error("Compressed UInt32 is too large.");
     }
 
@@ -511,13 +514,11 @@ export class Protocol18Deserializer {
 
     static _ReadCompressedInt32(input) {
         const value = this._ReadCompressedUInt32(input);
-        // Zig-zag decoding compatible con operaciones a nivel de bits de 32 bits de JS
         return (value >>> 1) ^ -(value & 1);
     }
 
     static _ReadCompressedInt64(input) {
         const value = this._ReadCompressedUInt64(input);
-        // Zig-zag decoding usando BigInt
         return (value >> 1n) ^ -(value & 1n);
     }
 }

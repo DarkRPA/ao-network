@@ -1,7 +1,6 @@
 import {BinaryReader} from './BinaryReader.js';
-import  {Protocol16}  from './PhotonParser/index.js';
-import { Protocol18Deserializer } from './PhotonParser/Protocol16/Protocol18Deserializer.js';
-
+import {Protocol16} from './PhotonParser/index.js';
+import {Protocol18Deserializer} from './PhotonParser/Protocol16/Protocol18Deserializer.js';
 
 export class AODecoder {
     CODIGO_1 = -12;
@@ -64,18 +63,19 @@ export class AODecoder {
             if(this.debug === true) {
                 console.log(`Encrypted packages are not supported`);
             }
-
             return;
         }
 
         for(let commandIdx = 0; commandIdx < commandCount; commandIdx++) {
             if(this.debug){
-                console.log("COMMAND LOOP: ", commandIdx, commandCount, "POSITION: ", buf.position);
+                console.log("COMMAND LOOP: ", commandIdx, commandCount, "POSITION: ", p.position);
             }
             try {
                 this.handleCommand(p);
             } catch (error) {
-                this.trySkipCommand(p);
+                console.log(error);
+                // Si aún con las correcciones falla, intentamos skipear (ya no debería pasar)
+                // this.trySkipCommand(p);
             }
         }
     }
@@ -84,6 +84,7 @@ export class AODecoder {
         if(this.debug){
             console.log("HANDLE COMMAND START: ", "POSITION: ", p.position);
         }
+        
         let actualPosition = p.position;
         const commandType       = p.ReadUInt8();
         const channelId         = p.ReadUInt8();
@@ -96,11 +97,18 @@ export class AODecoder {
             console.log("HANDLE COMMAND POST READ: ", "POSITION: ", p.position, commandType, channelId, commandFlags, unkBytes, commandLength, sequenceNumber);
         }
 
-        if(commandType != this.commandType.Disconnect && commandType != this.commandType.SendFragment && commandType != this.commandType.SendReliable && commandType != this.commandType.SendUnreliable) return;
+        // Evitamos que un tamaño corrupto lance un error o cause bucles infinitos
+        if(commandLength < this.commandHeaderLength) {
+            if(this.debug) console.log("Invalid command length!");
+            return;
+        }
 
         commandLength -= this.commandHeaderLength;
 
-    
+        // CORRECCIÓN PRINCIPAL: No usar return anticipado sin sumar al puntero.
+        // Si el comando no nos interesa (ej. Acknowledge), pasamos por el 'else' y 
+        // garantizamos que 'p.position += commandLength' se ejecute.
+        
         if(commandType == this.commandType.SendReliable || commandType == this.commandType.SendUnreliable) {
             if(commandType == this.commandType.SendUnreliable) {
                 p.position += 4;
@@ -108,17 +116,14 @@ export class AODecoder {
             }
 
             this.handleSendReliable(p, commandLength);
-            return 0;
         }
-
         else if(commandType == this.commandType.SendFragment) {
             this.handleSendFragment(p, commandLength);
-            return 0;
         }
-
-        p.position += commandLength;
-
-        return 0;
+        else {
+            // Skips Disconnect, Ping, Acknowledge y los salta correctamente.
+            p.position += commandLength;
+        }
     }
 
     checkIfLengthIsCorrect(p, length, startingPoint){
@@ -147,6 +152,7 @@ export class AODecoder {
             console.log("HANDLE SEND RELIABLE START: ", "POSITION: ", p.position, commandLength);
         }
 
+        // Saltamos el Signature Byte de Photon (usualmente 0xF3)
         p.position++;
         commandLength--;
 
@@ -156,7 +162,6 @@ export class AODecoder {
         let operationLength = commandLength;
 
         let payload = new Protocol16.Stream(commandLength);
-
         payload.writeBuffer(p.buf, p.position, commandLength);
 
         p.position += operationLength;
@@ -185,7 +190,6 @@ export class AODecoder {
                     this.messageType.Event,
                     Protocol18Deserializer.deserializeEventData(payload, p)
                 );
-                //console.log(p)
             break;
         }
     }
@@ -209,19 +213,13 @@ export class AODecoder {
 
     handleRetrySkip(p){
         return this.trySkipCommand(p);
-
-        let tryToGoBack = this.retryCommand(p);
-        if(tryToGoBack == -1){
-            //Inevitablemente tenemos que skipear este comando
-            return this.trySkipCommand(p);
-        }
-        return tryToGoBack;
     }
 
     retryCommand(p){
         return this.trySkipCommand(p, true);
     }
 
+    // Funciones que probablemente queden obsoletas ya que el puntero ya no se desincronizará
     trySkipCommand(p, retry = false){
         let startingPosition = p.position;
         let startFound = false;
@@ -230,8 +228,7 @@ export class AODecoder {
         while(!startFound){
             if(p.position >= p.length || p.position < 0) startFound = true;
             if(p.buf[p.position] == 243 && (p.buf[p.position + Math.abs(sumatorio)] == this.messageType.Event || p.buf[p.position + Math.abs(sumatorio)] == this.messageType.OperationRequest || p.buf[p.position + Math.abs(sumatorio)] == this.messageType.OperationResponse)){
-                //It seems this is the start of the packet, since this only happens in segmented packets
-                //we are going 16 bytes earlier.
+                
                 if(p.buf[p.position + this.CODIGO_7] == this.commandType.SendUnreliable){
                     p.position += this.CODIGO_7;
                     return (retry)?1:0;
@@ -239,7 +236,6 @@ export class AODecoder {
 
                 if(p.buf[p.position + this.CODIGO_6] == this.commandType.SendReliable){
                     p.position += this.CODIGO_6;
-                    //console.log("POSITION SKIPEADA: ", p.position)
                     return (retry)?1:0;
                 }
 
@@ -310,7 +306,8 @@ export class AODecoder {
             return this._pendingSegments[startSequenceNumber];
         }
 
-        let buffer1 = new Buffer(totalLength);
+        // CORRECCIÓN 2: Buffer() está obsoleto en node, lo correcto para evitar crashes/leaks es alloc()
+        let buffer1 = Buffer.alloc(totalLength);
         this._pendingSegments[startSequenceNumber] = {
             totalLength,
             bytesWritten: 0,
