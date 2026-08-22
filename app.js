@@ -6,19 +6,18 @@ import { AODecoder } from './libs/AODecoder.js';
 import { OnPacketEvent } from './libs/Events.js';
 import * as data from './data/index.js';
 import * as network from "network";
+import { Interfaz } from "./interface.js";
 
 export class App {
     constructor(debug = false) {
+        this.interfaces = [];
         this.debug      = debug;
 
-        this.cap        = new Cap();
         this.events     = new OnPacketEvent();
         this.AODecoder  = new AODecoder(this.events, this.debug);
         this.data       = data;
 
         this.PROTOCOL   = decoders.PROTOCOL;
-        this.linkType   = null;
-        this.buffer     = Buffer.alloc(65535);
 
         this.init();
     }
@@ -28,30 +27,29 @@ export class App {
         //We are going to give support for Ethernet, for now
         let foundNetwork;
 
-        network.get_active_interface((error, data)=>{
+        network.get_interfaces_list((error, interfaces) => {
             if(error){
-                throw new Error(error);
+                throw error;
             }
 
-            foundNetwork = data["ip_address"];
-
-            const device = Cap.findDevice(foundNetwork);
-        
-            const filter = 'udp and (dst port 5056 or src port 5056)';
-            const bufSize = 10 * 1024 * 1024;
-
-            this.linkType = this.cap.open(device, filter, bufSize, this.buffer);
-            this.cap.setMinBytes && this.cap.setMinBytes(0);
-            this.cap.on('packet', this.onPacket);
+            for(let i in interfaces){
+                let interfaz = interfaces[i];
+                if(!interfaz["ip_address"]){
+                    continue;
+                }
+                let IObject = new Interfaz(interfaz["ip_address"]);
+                IObject.on_packet(this.onPacket);
+                this.interfaces.push(IObject);
+            }
         });
     }
 
-    onPacket = (nBytes, trunc) => {
-        if(this.linkType !== 'ETHERNET') {
+    onPacket = (nBytes, trunc, interfazObtenida) => {
+        if(interfazObtenida.linkType !== 'ETHERNET') {
             return;
         }
 
-        let ret = decoders.Ethernet(this.buffer);
+        let ret = decoders.Ethernet(interfazObtenida.buffer);
 
         if(ret.info.type !== this.PROTOCOL.ETHERNET.IPV4) {
             if(this.debug) {
@@ -61,7 +59,7 @@ export class App {
             return;
         }
 
-        ret = decoders.IPV4(this.buffer, ret.offset);
+        ret = decoders.IPV4(interfazObtenida.buffer, ret.offset);
 
         if(ret.info.protocol !== this.PROTOCOL.IP.UDP) {
             if(this.debug) {
@@ -71,22 +69,16 @@ export class App {
             return;
         }
 
-        ret = decoders.UDP(this.buffer, ret.offset);
+        ret = decoders.UDP(interfazObtenida.buffer, ret.offset);
 
         if(ret.info.srcport != 5056 && ret.info.dstport != 5056) {
             return;
         }
-        // try{
-        //  
-        // }catch(err){
-        //     console.log(err);
-        // }
-
         if(this.debug){
             console.log("PACKET START:_____");
         }
 
-           this.AODecoder.packetHandler(this.buffer.slice(ret.offset));
+           this.AODecoder.packetHandler(interfazObtenida.buffer.slice(ret.offset));
     }
 
     on(eventCode, callback){
