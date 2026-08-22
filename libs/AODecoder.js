@@ -1,8 +1,15 @@
 import {BinaryReader} from './BinaryReader.js';
-import  {Protocol16}  from './PhotonParser/index.js';
-import { Protocol18Deserializer } from './PhotonParser/Protocol16/Protocol18Deserializer.js';
+import {Protocol16} from './PhotonParser/index.js';
+import {Protocol18Deserializer} from './PhotonParser/Protocol16/Protocol18Deserializer.js';
 
 export class AODecoder {
+    CODIGO_1 = -12;
+    CODIGO_4 = -12;
+    CODIGO_5 = -12;
+    CODIGO_6 = -12;
+    CODIGO_7 = -16;
+    CODIGO_8 = -32;
+
     constructor(events, debug) {
         this.events = events;
         this.debug = debug;
@@ -11,6 +18,8 @@ export class AODecoder {
         this.photonHeaderLength = 12;
 
         this.commandType = {
+            Ping: 5,
+            Acknowledge: 1,
             Disconnect: 4,
             SendReliable: 6,
             SendUnreliable: 7,
@@ -54,16 +63,20 @@ export class AODecoder {
             if(this.debug === true) {
                 console.log(`Encrypted packages are not supported`);
             }
-
             return;
         }
 
         for(let commandIdx = 0; commandIdx < commandCount; commandIdx++) {
-            
             if(this.debug){
-                console.log("COMMAND LOOP: ", commandIdx, commandCount, "POSITION: ", buf.position);
+                console.log("COMMAND LOOP: ", commandIdx, commandCount, "POSITION: ", p.position);
             }
-            this.handleCommand(p);
+            try {
+                this.handleCommand(p);
+            } catch (error) {
+                console.log(error);
+                // Si aún con las correcciones falla, intentamos skipear (ya no debería pasar)
+                // this.trySkipCommand(p);
+            }
         }
     }
 
@@ -71,6 +84,8 @@ export class AODecoder {
         if(this.debug){
             console.log("HANDLE COMMAND START: ", "POSITION: ", p.position);
         }
+        
+        let actualPosition = p.position;
         const commandType       = p.ReadUInt8();
         const channelId         = p.ReadUInt8();
         const commandFlags      = p.ReadUInt8();
@@ -82,40 +97,54 @@ export class AODecoder {
             console.log("HANDLE COMMAND POST READ: ", "POSITION: ", p.position, commandType, channelId, commandFlags, unkBytes, commandLength, sequenceNumber);
         }
 
-        if(commandType != this.commandType.Disconnect && commandType != this.commandType.SendFragment && commandType != this.commandType.SendReliable && commandType != this.commandType.SendUnreliable) return;
-
-        if(commandType == this.commandType.SendReliable){
-            //console.log("");
+        // Evitamos que un tamaño corrupto lance un error o cause bucles infinitos
+        if(commandLength < this.commandHeaderLength) {
+            if(this.debug) console.log("Invalid command length!");
+            return;
         }
 
         commandLength -= this.commandHeaderLength;
 
-        if(commandType == this.commandType.Disconnect) {
-            return;
-        }
-
-        else if(commandType == this.commandType.SendReliable || commandType == this.commandType.SendUnreliable) {
+        // CORRECCIÓN PRINCIPAL: No usar return anticipado sin sumar al puntero.
+        // Si el comando no nos interesa (ej. Acknowledge), pasamos por el 'else' y 
+        // garantizamos que 'p.position += commandLength' se ejecute.
+        
+        if(commandType == this.commandType.SendReliable || commandType == this.commandType.SendUnreliable) {
             if(commandType == this.commandType.SendUnreliable) {
                 p.position += 4;
                 commandLength -= 4;
             }
 
             this.handleSendReliable(p, commandLength);
-            return;
         }
-
         else if(commandType == this.commandType.SendFragment) {
             this.handleSendFragment(p, commandLength);
-            return;
+        }
+        else {
+            // Skips Disconnect, Ping, Acknowledge y los salta correctamente.
+            p.position += commandLength;
+        }
+    }
+
+    checkIfLengthIsCorrect(p, length, startingPoint){
+        return (p.buf[startingPoint + length] == this.commandType.SendReliable || p.buf[startingPoint + length] == this.commandType.SendFragment || p.buf[startingPoint + length] == this.commandType.SendUnreliable || p.buf[startingPoint + length] == this.commandType.SendFragment || p.buf[startingPoint + length] == 0);
+    }
+
+    findCorrectLengthOfCommand(p, startingPoint){
+        let internalCounter = p.position;
+        let found = false;
+        let result = 0;
+
+        while(!found){
+            if((p.buf[internalCounter] == this.commandType.SendFragment || p.buf[internalCounter] == this.commandType.SendReliable || p.buf[internalCounter] == this.commandType.SendUnreliable) && (p.buf[internalCounter + 3] == 0)){
+                found = true;
+                result = (internalCounter - startingPoint);
+            }else{
+                internalCounter++;
+            }
         }
 
-        if(commandLength >= 700) {
-            console.log();
-        }
-
-        p.position += commandLength;
-
-        return;
+        return result;
     }
 
     handleSendReliable(p, commandLength) {
@@ -123,6 +152,7 @@ export class AODecoder {
             console.log("HANDLE SEND RELIABLE START: ", "POSITION: ", p.position, commandLength);
         }
 
+        // Saltamos el Signature Byte de Photon (usualmente 0xF3)
         p.position++;
         commandLength--;
 
@@ -130,6 +160,7 @@ export class AODecoder {
         commandLength--;
 
         let operationLength = commandLength;
+
         let payload = new Protocol16.Stream(commandLength);
         payload.writeBuffer(p.buf, p.position, commandLength);
 
@@ -157,11 +188,74 @@ export class AODecoder {
             case this.messageType.Event:
                 this.events.emitPacketEvent(
                     this.messageType.Event,
-                    Protocol18Deserializer.deserializeEventData(payload)
+                    Protocol18Deserializer.deserializeEventData(payload, p)
                 );
-                //console.log(p)
             break;
         }
+    }
+
+    checkBytesPlus(p, bytes){
+        let starting = p.position - 1;
+        return p.buf[starting + Math.abs(bytes)] == 243 && (p.buf[starting + Math.abs(bytes) + 1] == this.messageType.Event || p.buf[starting + Math.abs(bytes) + 1] == this.messageType.OperationRequest || p.buf[starting + Math.abs(bytes) + 1] == this.messageType.OperationResponse);
+    }
+
+    checkBytesPlusReliable(p){
+        return this.checkBytesPlus(p, this.CODIGO_6);
+    }
+
+    checkBytesPlusUnReliable(p){
+        return this.checkBytesPlus(p, this.CODIGO_7);
+    }
+
+    checkBytesPlusFragment(p){
+        return this.checkBytesPlus(p, this.CODIGO_8);
+    }
+
+    handleRetrySkip(p){
+        return this.trySkipCommand(p);
+    }
+
+    retryCommand(p){
+        return this.trySkipCommand(p, true);
+    }
+
+    // Funciones que probablemente queden obsoletas ya que el puntero ya no se desincronizará
+    trySkipCommand(p, retry = false){
+        let startingPosition = p.position;
+        let startFound = false;
+        let sumatorio = (!retry)?1:-1;
+        
+        while(!startFound){
+            if(p.position >= p.length || p.position < 0) startFound = true;
+            if(p.buf[p.position] == 243 && (p.buf[p.position + Math.abs(sumatorio)] == this.messageType.Event || p.buf[p.position + Math.abs(sumatorio)] == this.messageType.OperationRequest || p.buf[p.position + Math.abs(sumatorio)] == this.messageType.OperationResponse)){
+                
+                if(p.buf[p.position + this.CODIGO_7] == this.commandType.SendUnreliable){
+                    p.position += this.CODIGO_7;
+                    return (retry)?1:0;
+                }
+
+                if(p.buf[p.position + this.CODIGO_6] == this.commandType.SendReliable){
+                    p.position += this.CODIGO_6;
+                    return (retry)?1:0;
+                }
+
+                if(p.buf[p.position + this.CODIGO_8] == this.commandType.SendFragment){
+                    p.position += this.CODIGO_8;
+                    return (retry)?1:0;
+                }
+
+                p.position += sumatorio;
+            }else{
+                p.position += sumatorio;
+            }
+        }
+
+        if(!retry){
+            return -2;
+        }
+
+        p.position = startingPosition;
+        return -1;
     }
 
     handleSendFragment(p, commandLength) {
@@ -212,10 +306,12 @@ export class AODecoder {
             return this._pendingSegments[startSequenceNumber];
         }
 
+        // CORRECCIÓN 2: Buffer() está obsoleto en node, lo correcto para evitar crashes/leaks es alloc()
+        let buffer1 = Buffer.alloc(totalLength);
         this._pendingSegments[startSequenceNumber] = {
             totalLength,
             bytesWritten: 0,
-            totalPayload: new Buffer(totalLength)
+            totalPayload: buffer1
         };
 
         return this._pendingSegments[startSequenceNumber];

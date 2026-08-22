@@ -43,6 +43,7 @@ class OperationRequest {
         this.operationCode = operationCode;
         this.parameters = parameters; // Map
     }
+
 }
 
 class OperationResponse {
@@ -58,9 +59,14 @@ class EventData {
     constructor(code, parameters) {
         this.code = code;
         this.parameters = parameters; // Map
-        if(this.code == 3){
-            //console.log(this.parameters);
-        }
+    }
+
+    toString(){
+        let result = "";
+        let paramKeys = this.parameters.keys();
+        paramKeys.forEach(key => result = result.concat(`${key}:${this.parameters.get(key)}\n`));
+
+        return result;
     }
 }
 
@@ -142,9 +148,10 @@ export class Protocol18Deserializer {
         return new OperationResponse(operationCode, returnCode, debugMessage, parameters);
     }
 
-    static deserializeEventData(input) {
-        const code = input.ReadByte();
-        const parameters = this._deserializeParameterTable(input);
+    static deserializeEventData(input, p) {
+        let code = input.ReadByte();
+        let parameters = this._deserializeParameterTable(input, p);
+
         return new EventData(code, parameters);
     }
 
@@ -234,7 +241,7 @@ export class Protocol18Deserializer {
         }
     }
 
-    static _deserializeParameterTable(input) {
+    static _deserializeParameterTable(input, p) {
         const dictionarySize = this._ReadCount(input);
         const dictionary = new Map();
 
@@ -243,19 +250,11 @@ export class Protocol18Deserializer {
             const valueTypeCode = input.ReadByte();
             try {
                 const value = this.deserialize(input, valueTypeCode);
-                //if(value == "FinoGod")
-                    //console.log()
                 dictionary.set(key, value);
             } catch (ex) {
                 throw new Error(`Failed to deserialize parameter key=${key} valueType=0x${valueTypeCode} remaining=${input.remaining}. Original: ${ex.message}`);
             }
         }
-
-        if(dictionary.get(252) == 29){
-            //console.log(dictionary)
-        }
-
-        //console.log(dictionary)
         return dictionary;
     }
 
@@ -288,13 +287,16 @@ export class Protocol18Deserializer {
 
     static _deserializeNestedArray(input) {
         const size = this._ReadCount(input);
-        const typeCode = input.ReadByte();
+        let typeCode = input.ReadByte();
         const result = new Array(size);
 
         for (let i = 0; i < size; i++) {
             const itemStart = input.position;
             try {
                 result[i] = this.deserialize(input, typeCode);
+                if(i+1 < size){
+                    typeCode = input.ReadByte();
+                }
             } catch (ex) {
                 input.position = itemStart;
                 const repeatedValue = this._tryDeserializeNestedItemWithRepeatedTypeCode(input, typeCode);
@@ -487,9 +489,9 @@ export class Protocol18Deserializer {
             }
             shift += 7;
         }
-        return 0;
+        //return 0;
         //I don't know why this exact event is causing such drama
-        //throw new Error("Compressed UInt32 is too large.");
+        throw new Error("Compressed UInt32 is too large.");
     }
 
     static _ReadCompressedUInt64(input) {

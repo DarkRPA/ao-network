@@ -1,6 +1,8 @@
 import {App as AONetwork} from './app';
 const aoNet = new AONetwork();
 
+console.log("sss")
+
 /**
  * All events
  */
@@ -8,38 +10,3 @@ aoNet.events.use((result) => {
     console.log(result.context);
 });
 
-/**
- * Event
- */
-aoNet.events.on(aoNet.AODecoder.messageType.Event, (context) => {
-    if(!context.parameters.hasOwnProperty('252')) {
-        return;
-    }
-
-    console.log(context);
-});
-
-/**
- * OperationResponse
- */
-aoNet.events.on(aoNet.AODecoder.messageType.OperationResponse, (context) => {
-    console.log(context);
-});
-
-/**
- * OperationRequest
- */
-aoNet.events.on(aoNet.AODecoder.messageType.OperationRequest, (context) => {
-    console.log(context);
-});
-
-/**
- * Auction
- */
-aoNet.events.on(aoNet.AODecoder.messageType.OperationResponse, (context) => {
-    if(!context.parameters.hasOwnProperty('253') || context.parameters['253'] != aoNet.data.operations.AuctionModifyAuction) {
-        return;
-    }
-
-    console.log(context);
-});
