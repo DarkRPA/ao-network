@@ -27,21 +27,19 @@ export class App {
         //We are going to give support for Ethernet, for now
         let foundNetwork;
 
-        network.get_interfaces_list((error, interfaces) => {
-            if(error){
-                throw error;
-            }
+        for(let x in networkInterfaces){
+            let inter = networkInterfaces[x];
 
-            for(let i in interfaces){
-                let interfaz = interfaces[i];
-                if(!interfaz["ip_address"]){
+            for(let red in inter){
+                let redReal = inter[red];
+                if(!redReal["address"] || redReal["family"] != "IPv4" || redReal["internal"]){
                     continue;
                 }
-                let IObject = new Interfaz(interfaz["ip_address"]);
+                let IObject = new Interfaz(redReal["address"]);
                 IObject.on_packet(this.onPacket);
                 this.interfaces.push(IObject);
             }
-        });
+        }
     }
 
     onPacket = (nBytes, trunc, interfazObtenida) => {
